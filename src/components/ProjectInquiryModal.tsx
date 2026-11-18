@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, X } from 'lucide-react';
+import { TranslationPack } from '../i18n/translations';
 import { ClientInquiry } from '../types/dev';
 
 interface ProjectInquiryModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultProjectTitle?: string;
+  t: TranslationPack;
   onSubmitInquiry: (payload: {
     clientName: string;
     clientEmail: string;
@@ -38,6 +40,7 @@ export function ProjectInquiryModal({
   isOpen,
   onClose,
   defaultProjectTitle = '',
+  t,
   onSubmitInquiry,
   onViewInClientHub,
 }: ProjectInquiryModalProps) {
@@ -83,7 +86,7 @@ export function ProjectInquiryModal({
     e.preventDefault();
     const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim());
     if (!clientName.trim() || !emailValid || !brief.trim()) {
-      setError('Please enter your name, a valid email address, and a brief project description.');
+      setError(t.inquiryModal.validationError);
       return;
     }
     setError('');
@@ -117,12 +120,12 @@ export function ProjectInquiryModal({
         <div className="flex items-center justify-between border-b border-zinc-200 pb-4">
           <div>
             <h2 className="font-display text-lg font-semibold text-zinc-950">
-              {submitted ? 'Inquiry Received' : 'Start a Web Development Project'}
+              {submitted ? t.inquiryModal.submittedTitle : t.inquiryModal.title}
             </h2>
             <p className="text-xs text-zinc-500">
               {submitted
-                ? 'Logged directly in Client Hub for scoping.'
-                : 'Share your goals and timeline to schedule a technical call.'}
+                ? t.inquiryModal.submittedSubtitle
+                : t.inquiryModal.subtitle}
             </p>
           </div>
           <button
@@ -141,10 +144,10 @@ export function ProjectInquiryModal({
               <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
               <div className="text-sm text-emerald-900">
                 <p className="font-semibold">
-                  Project Brief #{submitted.id} Created
+                  #{submitted.id} · {submitted.projectTitle}
                 </p>
                 <p className="mt-1 text-xs text-emerald-800">
-                  “{submitted.projectTitle}” for {submitted.clientName} is now tracked in Client Hub.
+                  {submitted.clientName} ({submitted.company})
                 </p>
               </div>
             </div>
@@ -157,14 +160,14 @@ export function ProjectInquiryModal({
                 }}
                 className="flex-1 py-2.5 px-4 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 rounded-lg cursor-pointer"
               >
-                Open in Client Hub
+                {t.inquiryModal.openClientHub}
               </button>
               <button
                 type="button"
                 onClick={handleClose}
                 className="py-2.5 px-4 text-sm font-medium text-zinc-700 border border-zinc-200 rounded-lg hover:bg-zinc-50 cursor-pointer"
               >
-                Done
+                {t.inquiryModal.done}
               </button>
             </div>
           </div>
@@ -173,7 +176,7 @@ export function ProjectInquiryModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Your Name
+                  {t.inquiryModal.nameLabel}
                 </label>
                 <input
                   type="text"
@@ -186,7 +189,7 @@ export function ProjectInquiryModal({
               </div>
               <div>
                 <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Email Address
+                  {t.inquiryModal.emailLabel}
                 </label>
                 <input
                   type="email"
@@ -202,7 +205,7 @@ export function ProjectInquiryModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Company / Brand
+                  {t.inquiryModal.companyLabel}
                 </label>
                 <input
                   type="text"
@@ -214,7 +217,7 @@ export function ProjectInquiryModal({
               </div>
               <div>
                 <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Project Title
+                  {t.inquiryModal.projectTitleLabel}
                 </label>
                 <input
                   type="text"
@@ -228,7 +231,7 @@ export function ProjectInquiryModal({
 
             <div>
               <label className="block text-xs font-medium text-zinc-700 mb-1">
-                Preferred Architecture / Stack
+                {t.inquiryModal.stackLabel}
               </label>
               <select
                 value={stackIndex}
@@ -246,7 +249,7 @@ export function ProjectInquiryModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Target Budget (USD)
+                  {t.inquiryModal.budgetLabel}
                 </label>
                 <input
                   type="number"
@@ -259,7 +262,7 @@ export function ProjectInquiryModal({
               </div>
               <div>
                 <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Target Timeline (Weeks)
+                  {t.inquiryModal.timelineLabel}
                 </label>
                 <input
                   type="number"
@@ -274,14 +277,14 @@ export function ProjectInquiryModal({
 
             <div>
               <label className="block text-xs font-medium text-zinc-700 mb-1">
-                Project Brief (English, বাংলা, or Banglish)
+                {t.inquiryModal.briefLabel}
               </label>
               <textarea
                 rows={4}
                 required
                 value={brief}
                 onChange={(e) => setBrief(e.target.value)}
-                placeholder="Describe key features, user roles, integrations (payment, AI, dashboard), and launch goals..."
+                placeholder={t.inquiryModal.briefPlaceholder}
                 className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:border-blue-700"
               />
             </div>
@@ -296,7 +299,7 @@ export function ProjectInquiryModal({
               type="submit"
               className="w-full py-2.5 px-4 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 rounded-lg transition-colors cursor-pointer"
             >
-              Submit Project Inquiry
+              {t.inquiryModal.submitBtn}
             </button>
           </form>
         )}

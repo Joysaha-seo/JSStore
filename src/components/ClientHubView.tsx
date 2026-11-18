@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Edit3, Plus, Printer, Search, Sparkles, Trash2, X } from 'lucide-react';
 import { formatDevMoney } from '../data/initialDevData';
+import { TranslationPack } from '../i18n/translations';
 import {
   CaseStudy,
   ClientInquiry,
@@ -13,6 +14,7 @@ interface ClientHubViewProps {
   inquiries: ClientInquiry[];
   projects: CaseStudy[];
   currency: CurrencyCode;
+  t: TranslationPack;
   onUpdateInquiryStatus: (id: string, status: InquiryStatus) => void;
   onDeleteInquiry: (id: string) => void;
   onSaveCaseStudy: (project: CaseStudy) => void;
@@ -51,6 +53,7 @@ export function ClientHubView({
   inquiries,
   projects,
   currency,
+  t,
   onUpdateInquiryStatus,
   onDeleteInquiry,
   onSaveCaseStudy,
@@ -178,10 +181,10 @@ export function ClientHubView({
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-zinc-950">
-            Client Hub & Portfolio Manager
+            {t.clientHub.heading}
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Track freelance inquiries, generate printable quotes & AI proposals, and manage published case studies.
+            {t.clientHub.subheading}
           </p>
         </div>
 
@@ -192,7 +195,7 @@ export function ClientHubView({
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-zinc-800 bg-white border border-zinc-200 hover:border-zinc-400 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Add Case Study</span>
+            <span>{t.clientHub.addCaseStudy}</span>
           </button>
           <button
             type="button"
@@ -200,7 +203,7 @@ export function ClientHubView({
             className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-blue-700 hover:bg-blue-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>New Client Lead</span>
+            <span>{t.clientHub.newClientLead}</span>
           </button>
         </div>
       </div>
@@ -208,25 +211,25 @@ export function ClientHubView({
       {/* 4-Column Pipeline Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 bg-white border border-zinc-200 rounded-xl divide-y sm:divide-y-0 sm:divide-x divide-zinc-200">
         <div className="p-5">
-          <p className="text-xs text-zinc-500">Total Pipeline Value</p>
+          <p className="text-xs text-zinc-500">{t.clientHub.pipelineValue}</p>
           <p className="mt-1.5 font-mono text-2xl font-semibold text-zinc-950 tabular-nums">
             {formatDevMoney(pipelineValueUsd, currency)}
           </p>
         </div>
         <div className="p-5">
-          <p className="text-xs text-zinc-500">Open Leads & Proposals</p>
+          <p className="text-xs text-zinc-500">{t.clientHub.openLeads}</p>
           <p className="mt-1.5 font-mono text-2xl font-semibold text-amber-700 tabular-nums">
             {openLeadsCount}
           </p>
         </div>
         <div className="p-5">
-          <p className="text-xs text-zinc-500">Active Client Builds</p>
+          <p className="text-xs text-zinc-500">{t.clientHub.activeBuilds}</p>
           <p className="mt-1.5 font-mono text-2xl font-semibold text-blue-700 tabular-nums">
             {activeBuildsCount}
           </p>
         </div>
         <div className="p-5">
-          <p className="text-xs text-zinc-500">Published & Shipped</p>
+          <p className="text-xs text-zinc-500">{t.clientHub.publishedShipped}</p>
           <p className="mt-1.5 font-mono text-2xl font-semibold text-emerald-700 tabular-nums">
             {shippedCount}
           </p>
@@ -237,7 +240,7 @@ export function ClientHubView({
       <section className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h2 className="font-display text-base font-semibold text-zinc-950">
-            Client Leads & Active Projects
+            {t.clientHub.leadsHeading}
           </h2>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
@@ -246,7 +249,7 @@ export function ClientHubView({
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search client or project..."
+                placeholder={t.clientHub.searchPlaceholder}
                 className="pl-8 pr-2.5 py-1.5 text-xs border border-zinc-200 rounded-lg w-48 focus:outline-none focus:border-blue-700"
               />
             </div>
@@ -258,7 +261,7 @@ export function ClientHubView({
               aria-label="Filter leads by status"
               className="px-2.5 py-1.5 text-xs border border-zinc-200 rounded-lg bg-white text-zinc-700 focus:outline-none focus:border-blue-700"
             >
-              <option value="All">All Stages</option>
+              <option value="All">{t.clientHub.allStages}</option>
               <option value="New Lead">New Lead</option>
               <option value="Proposal Sent">Proposal Sent</option>
               <option value="In Progress">In Progress</option>
@@ -269,9 +272,9 @@ export function ClientHubView({
 
         {filteredInquiries.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-sm font-medium text-zinc-900">No client inquiries found</p>
+            <p className="text-sm font-medium text-zinc-900">{t.clientHub.noInquiries}</p>
             <p className="mt-1 text-xs text-zinc-500">
-              Add a new lead or generate an AI scope estimate in AI Studio.
+              {t.clientHub.noInquiriesHint}
             </p>
           </div>
         ) : (
@@ -279,13 +282,13 @@ export function ClientHubView({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50 text-xs font-medium text-zinc-500">
-                  <th className="py-2.5 px-4">Ref</th>
-                  <th className="py-2.5 px-4">Client</th>
-                  <th className="py-2.5 px-4">Project & Stack</th>
-                  <th className="py-2.5 px-4 text-right">Timeline</th>
-                  <th className="py-2.5 px-4 text-right">Estimate</th>
-                  <th className="py-2.5 px-4">Stage</th>
-                  <th className="py-2.5 px-4 text-right">Actions</th>
+                  <th className="py-2.5 px-4">{t.clientHub.colRef}</th>
+                  <th className="py-2.5 px-4">{t.clientHub.colClient}</th>
+                  <th className="py-2.5 px-4">{t.clientHub.colProject}</th>
+                  <th className="py-2.5 px-4 text-right">{t.clientHub.colTimeline}</th>
+                  <th className="py-2.5 px-4 text-right">{t.clientHub.colEstimate}</th>
+                  <th className="py-2.5 px-4">{t.clientHub.colStage}</th>
+                  <th className="py-2.5 px-4 text-right">{t.clientHub.colActions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 text-sm">
@@ -343,7 +346,7 @@ export function ClientHubView({
                           className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-md cursor-pointer whitespace-nowrap"
                         >
                           <Sparkles className="w-3 h-3" />
-                          <span>AI Proposal</span>
+                          <span>{t.clientHub.aiProposalBtn}</span>
                         </button>
                         <button
                           type="button"
@@ -351,7 +354,7 @@ export function ClientHubView({
                           className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-zinc-700 border border-zinc-200 hover:border-zinc-400 rounded-md cursor-pointer whitespace-nowrap"
                         >
                           <Printer className="w-3 h-3" />
-                          <span>Quote</span>
+                          <span>{t.clientHub.quoteBtn}</span>
                         </button>
                         <button
                           type="button"
@@ -375,7 +378,7 @@ export function ClientHubView({
       <section className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-zinc-200 flex items-center justify-between">
           <h2 className="font-display text-base font-semibold text-zinc-950">
-            Published Portfolio Case Studies ({projects.length})
+            {t.clientHub.publishedHeading} ({projects.length})
           </h2>
         </div>
         <div className="divide-y divide-zinc-100">
@@ -398,7 +401,7 @@ export function ClientHubView({
                   className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-zinc-700 hover:text-zinc-950 border border-zinc-200 rounded-md cursor-pointer"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
-                  <span>Edit</span>
+                  <span>{t.clientHub.editBtn}</span>
                 </button>
                 <button
                   type="button"
@@ -406,7 +409,7 @@ export function ClientHubView({
                   className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-zinc-500 hover:text-red-700 border border-zinc-200 rounded-md cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Remove</span>
+                  <span>{t.clientHub.removeBtn}</span>
                 </button>
               </div>
             </div>
@@ -494,7 +497,7 @@ export function ClientHubView({
               onClick={() => window.print()}
               className="no-print w-full py-2.5 px-4 text-sm font-medium text-white bg-zinc-950 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
             >
-              Print / Save PDF Quote
+              {t.clientHub.printQuoteBtn}
             </button>
           </div>
         </div>

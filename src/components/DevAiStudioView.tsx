@@ -10,12 +10,14 @@ import {
   Trash2,
 } from 'lucide-react';
 import { formatDevMoney } from '../data/initialDevData';
+import { TranslationPack } from '../i18n/translations';
 import {
   estimateProjectScope,
   streamDevAiChat,
   writeClientProposal,
 } from '../services/devAiService';
 import {
+  AppLanguage,
   CaseStudy,
   ChatMessage,
   ClientInquiry,
@@ -28,6 +30,8 @@ import {
 interface DevAiStudioViewProps {
   developerName: string;
   currency: CurrencyCode;
+  language: AppLanguage;
+  t: TranslationPack;
   projects: CaseStudy[];
   services: ServicePackage[];
   inquiries: ClientInquiry[];
@@ -54,6 +58,8 @@ const ARCHITECT_PROMPTS = [
 export function DevAiStudioView({
   developerName,
   currency,
+  language,
+  t,
   projects,
   services,
   inquiries,
@@ -85,7 +91,7 @@ export function DevAiStudioView({
   const [propProjectTitle, setPropProjectTitle] = useState('');
   const [propBrief, setPropBrief] = useState('');
   const [propBudgetNote, setPropBudgetNote] = useState('');
-  const [propLanguage, setPropLanguage] = useState<'en' | 'bn' | 'banglish'>('en');
+  const [propLanguage, setPropLanguage] = useState<'en' | 'bn' | 'banglish' | 'hi'>(language);
   const [proposal, setProposal] = useState<ProposalDraft | null>(() => {
     try {
       const raw = sessionStorage.getItem('dev_ai_last_proposal');
@@ -111,6 +117,7 @@ export function DevAiStudioView({
   const [chatInput, setChatInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [chatError, setChatError] = useState('');
+  const [lastFailedChatPrompt, setLastFailedChatPrompt] = useState('');
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -186,6 +193,7 @@ export function DevAiStudioView({
         targetPlatform,
         urgency,
         currency,
+        language,
       });
       setEstimate(result);
     } catch (err) {
@@ -240,6 +248,7 @@ export function DevAiStudioView({
     const trimmed = textToSend.trim();
     if (!trimmed || isStreaming) return;
     setChatError('');
+    setLastFailedChatPrompt('');
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -270,6 +279,7 @@ export function DevAiStudioView({
         mode: chatMode,
         developerName,
         currency,
+        language,
         projects,
         services,
         inquiries,
@@ -287,7 +297,10 @@ export function DevAiStudioView({
       setChatError(
         err instanceof Error ? err.message : 'Unable to reach AI copilot.'
       );
-      setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+      setLastFailedChatPrompt(trimmed);
+      setMessages((prev) =>
+        prev.filter((m) => m.id !== assistantId && m.id !== userMsg.id)
+      );
     } finally {
       abortRef.current = null;
       setIsStreaming(false);
@@ -299,10 +312,10 @@ export function DevAiStudioView({
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-5 border-b border-zinc-200">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-zinc-950">
-            Web Developer AI Studio
+            {t.aiStudio.heading}
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            AI project scope & cost estimator, multilingual proposal writer, and technical architect copilot.
+            {t.aiStudio.subheading}
           </p>
         </div>
 
@@ -317,7 +330,7 @@ export function DevAiStudioView({
             }`}
           >
             <Calculator className="w-3.5 h-3.5" />
-            <span>Scope & Cost Estimator</span>
+            <span>{t.aiStudio.tabEstimator}</span>
           </button>
           <button
             type="button"
@@ -329,7 +342,7 @@ export function DevAiStudioView({
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Proposal Writer</span>
+            <span>{t.aiStudio.tabProposal}</span>
           </button>
           <button
             type="button"
@@ -341,7 +354,7 @@ export function DevAiStudioView({
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            <span>Architect Copilot</span>
+            <span>{t.aiStudio.tabCopilot}</span>
           </button>
         </div>
       </div>
@@ -354,22 +367,22 @@ export function DevAiStudioView({
             className="lg:col-span-5 bg-white border border-zinc-200 rounded-xl p-6 space-y-4"
           >
             <h2 className="font-display text-base font-semibold text-zinc-950">
-              Estimate Technical Scope & Budget
+              {t.aiStudio.estimatorHeading}
             </h2>
             <p className="text-xs text-zinc-500">
-              Paste a client requirement in English, বাংলা, or Banglish to generate a structured build plan.
+              {t.aiStudio.estimatorHint}
             </p>
 
             <div>
               <label className="block text-xs font-medium text-zinc-700 mb-1">
-                Project Idea / Client Requirements
+                {t.aiStudio.ideaLabel}
               </label>
               <textarea
                 rows={5}
                 required
                 value={projectIdea}
                 onChange={(e) => setProjectIdea(e.target.value)}
-                placeholder="e.g. Need an online booking & telemedicine portal with doctor profiles, bKash checkout, patient dashboard, and admin analytics..."
+                placeholder={t.aiStudio.ideaPlaceholder}
                 className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:border-blue-700"
               />
             </div>
@@ -377,7 +390,7 @@ export function DevAiStudioView({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Target Architecture
+                  {t.aiStudio.platformLabel}
                 </label>
                 <select
                   value={targetPlatform}
@@ -392,7 +405,7 @@ export function DevAiStudioView({
               </div>
               <div>
                 <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Delivery Speed
+                  {t.aiStudio.speedLabel}
                 </label>
                 <select
                   value={urgency}
@@ -419,7 +432,7 @@ export function DevAiStudioView({
               disabled={isEstimating}
               className="w-full py-2.5 px-4 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 disabled:bg-zinc-300 rounded-lg transition-colors cursor-pointer"
             >
-              {isEstimating ? 'Generating Technical Scope...' : 'Generate Scope & Cost Estimate'}
+              {isEstimating ? t.aiStudio.estimatingBtn : t.aiStudio.generateEstimateBtn}
             </button>
           </form>
 
@@ -427,10 +440,10 @@ export function DevAiStudioView({
             {!estimate ? (
               <div className="py-16 text-center">
                 <p className="text-sm font-semibold text-zinc-900">
-                  No technical scope generated yet
+                  {t.aiStudio.noEstimateTitle}
                 </p>
                 <p className="mt-1 text-xs text-zinc-500 max-w-md mx-auto">
-                  Describe the web application on the left to receive a module-by-module day breakdown, recommended stack, milestone schedule, and investment estimate.
+                  {t.aiStudio.noEstimateHint}
                 </p>
               </div>
             ) : (
@@ -541,8 +554,8 @@ export function DevAiStudioView({
                     className="px-4 py-2 text-xs font-medium text-white bg-zinc-950 hover:bg-blue-700 disabled:bg-emerald-700 rounded-lg transition-colors cursor-pointer"
                   >
                     {savedEstimateLeadId
-                      ? `Saved (#${savedEstimateLeadId})`
-                      : 'Save Estimate to Client Hub'}
+                      ? `#${savedEstimateLeadId}`
+                      : t.aiStudio.saveToHubBtn}
                   </button>
                   <button
                     type="button"
@@ -557,7 +570,7 @@ export function DevAiStudioView({
                     }}
                     className="px-4 py-2 text-xs font-medium text-zinc-800 border border-zinc-200 hover:border-zinc-950 rounded-lg transition-colors cursor-pointer"
                   >
-                    Draft Proposal from Estimate
+                    {t.aiStudio.draftFromEstimateBtn}
                   </button>
                 </div>
               </div>
@@ -574,19 +587,19 @@ export function DevAiStudioView({
             className="lg:col-span-5 bg-white border border-zinc-200 rounded-xl p-6 space-y-4"
           >
             <h2 className="font-display text-base font-semibold text-zinc-950">
-              AI Client Proposal & Pitch Writer
+              {t.aiStudio.proposalHeading}
             </h2>
 
             <div>
               <label className="block text-xs font-medium text-zinc-700 mb-1">
-                Load from Client Hub Lead
+                {t.aiStudio.loadLeadLabel}
               </label>
               <select
                 value={selectedLeadId}
                 onChange={(e) => handleLoadLeadIntoProposal(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white"
               >
-                <option value="custom">Custom / Manual Entry</option>
+                <option value="custom">{t.aiStudio.manualEntry}</option>
                 {inquiries.map((inq) => (
                   <option key={inq.id} value={inq.id}>
                     {inq.id} — {inq.clientName} ({inq.projectTitle})
@@ -653,12 +666,13 @@ export function DevAiStudioView({
               <label className="block text-xs font-medium text-zinc-700 mb-1">
                 Language / Tone
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {(
                   [
                     { id: 'en', label: 'English' },
-                    { id: 'banglish', label: 'EN + Banglish' },
+                    { id: 'banglish', label: 'Banglish' },
                     { id: 'bn', label: 'বাংলা' },
+                    { id: 'hi', label: 'हिन्दी' },
                   ] as const
                 ).map((opt) => (
                   <button
@@ -688,7 +702,7 @@ export function DevAiStudioView({
               disabled={isDraftingProp}
               className="w-full py-2.5 px-4 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 disabled:bg-zinc-300 rounded-lg transition-colors cursor-pointer"
             >
-              {isDraftingProp ? 'Drafting Proposal...' : 'Draft Proposal & Pitch'}
+              {isDraftingProp ? t.aiStudio.draftingProposalBtn : t.aiStudio.draftProposalBtn}
             </button>
           </form>
 
@@ -696,10 +710,10 @@ export function DevAiStudioView({
             {!proposal ? (
               <div className="py-16 text-center">
                 <p className="text-sm font-semibold text-zinc-900">
-                  Ready to write client proposals
+                  {t.aiStudio.noProposalTitle}
                 </p>
                 <p className="mt-1 text-xs text-zinc-500 max-w-md mx-auto">
-                  Select a lead from Client Hub or enter a brief to generate a ready-to-send email, WhatsApp pitch, and discovery questions.
+                  {t.aiStudio.noProposalHint}
                 </p>
               </div>
             ) : (
@@ -808,7 +822,7 @@ export function DevAiStudioView({
                       : 'text-zinc-600'
                   }`}
                 >
-                  Tech Architect
+                  {t.aiStudio.modeArchitect}
                 </button>
                 <button
                   type="button"
@@ -819,7 +833,7 @@ export function DevAiStudioView({
                       : 'text-zinc-600'
                   }`}
                 >
-                  Client Advisor
+                  {t.aiStudio.modeClient}
                 </button>
               </div>
             </div>
@@ -847,11 +861,11 @@ export function DevAiStudioView({
               <div>
                 <h2 className="font-display text-sm font-semibold text-zinc-950">
                   {chatMode === 'architect'
-                    ? 'Full-Stack Architecture & Business Copilot'
-                    : 'Prospective Client Q&A Assistant'}
+                    ? t.aiStudio.copilotArchitectTitle
+                    : t.aiStudio.copilotClientTitle}
                 </h2>
                 <p className="text-xs text-zinc-500">
-                  Supports English, বাংলা, and Banglish
+                  English · বাংলা · Banglish · हिन्दी
                 </p>
               </div>
               <button
@@ -873,7 +887,7 @@ export function DevAiStudioView({
                 className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-zinc-600 border border-zinc-200 rounded-md cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Clear</span>
+                <span>{t.aiStudio.clearBtn}</span>
               </button>
             </div>
 
@@ -895,7 +909,7 @@ export function DevAiStudioView({
                         : 'bg-white border border-zinc-200 text-zinc-800'
                     }`}
                   >
-                    {msg.text || (isStreaming ? 'Thinking...' : '')}
+                    {msg.text || (isStreaming ? t.chatBox.typing : '')}
                   </div>
                   <span className="mt-1 text-[11px] text-zinc-400 tabular-nums">
                     {msg.timestamp}
@@ -904,8 +918,17 @@ export function DevAiStudioView({
               ))}
 
               {chatError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
-                  {chatError}
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center justify-between gap-3">
+                  <span>{chatError}</span>
+                  {lastFailedChatPrompt && (
+                    <button
+                      type="button"
+                      onClick={() => void handleSendChat(lastFailedChatPrompt)}
+                      className="px-2.5 py-1 text-xs font-medium bg-white border border-red-300 text-red-800 hover:bg-red-100 rounded-md shrink-0 cursor-pointer"
+                    >
+                      {t.chatBox.retryBtn}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -921,7 +944,7 @@ export function DevAiStudioView({
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Ask about database schema, API design, or project pricing..."
+                placeholder={t.aiStudio.chatPlaceholder}
                 className="flex-1 px-3.5 py-2.5 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:border-blue-700"
               />
               {isStreaming ? (
@@ -931,7 +954,7 @@ export function DevAiStudioView({
                   className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-zinc-800 hover:bg-zinc-950 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   <Square className="w-3.5 h-3.5" />
-                  <span>Stop</span>
+                  <span>{t.aiStudio.stopBtn}</span>
                 </button>
               ) : (
                 <button
@@ -940,7 +963,7 @@ export function DevAiStudioView({
                   className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 disabled:bg-zinc-200 disabled:text-zinc-400 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   <Send className="w-4 h-4" />
-                  <span>Send</span>
+                  <span>{t.aiStudio.sendBtn}</span>
                 </button>
               )}
             </form>

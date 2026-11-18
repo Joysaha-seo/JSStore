@@ -1,3 +1,5 @@
+export type AppLanguage = 'en' | 'bn' | 'hi';
+
 export type CurrencyCode = 'USD' | 'BDT';
 
 export type DevWorkspaceTab = 'work' | 'services' | 'clients' | 'ai-studio';

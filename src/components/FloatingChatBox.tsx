@@ -7,8 +7,10 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { TranslationPack } from '../i18n/translations';
 import { streamDevAiChat } from '../services/devAiService';
 import {
+  AppLanguage,
   CaseStudy,
   ChatMessage,
   ClientInquiry,
@@ -19,6 +21,9 @@ import {
 interface FloatingChatBoxProps {
   developerName: string;
   currency: CurrencyCode;
+  language: AppLanguage;
+  onChangeLanguage: (lang: AppLanguage) => void;
+  t: TranslationPack;
   projects: CaseStudy[];
   services: ServicePackage[];
   inquiries: ClientInquiry[];
@@ -28,24 +33,17 @@ interface FloatingChatBoxProps {
 
 const STORAGE_KEY = 'dev_floating_chat_v1';
 
-const QUICK_PROMPTS: Record<'client' | 'architect', string[]> = {
-  client: [
-    'What services and packages do you offer?',
-    'Web app banate koto din ar koto budget lagbe?',
-    'Show me your e-commerce and SaaS case studies',
-  ],
-  architect: [
-    'Suggest a fast stack for a multi-tenant SaaS MVP',
-    'Review my active client leads and next steps',
-    'How should I structure bKash + COD checkout?',
-  ],
-};
+const CHAT_LANG_OPTIONS: Array<{ id: AppLanguage; label: string }> = [
+  { id: 'en', label: 'EN' },
+  { id: 'bn', label: 'বাংলা' },
+  { id: 'hi', label: 'हिन्दी' },
+];
 
-function createWelcomeMessage(developerName: string): ChatMessage {
+function createWelcomeMessage(welcomeText: string): ChatMessage {
   return {
     id: 'chatbox-welcome',
     role: 'model',
-    text: `Hi! Ask anything about ${developerName}'s web development services, project pricing, timelines, or technical stack in English, বাংলা, or Banglish.`,
+    text: welcomeText,
     timestamp: new Date().toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
@@ -56,6 +54,9 @@ function createWelcomeMessage(developerName: string): ChatMessage {
 export function FloatingChatBox({
   developerName,
   currency,
+  language,
+  onChangeLanguage,
+  t,
   projects,
   services,
   inquiries,
@@ -74,15 +75,25 @@ export function FloatingChatBox({
     } catch {
       // ignore
     }
-    return [createWelcomeMessage(developerName)];
+    return [createWelcomeMessage(t.chatBox.welcome)];
   });
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState('');
+  const [lastFailedPrompt, setLastFailedPrompt] = useState('');
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0]?.id === 'chatbox-welcome') {
+        return [createWelcomeMessage(t.chatBox.welcome)];
+      }
+      return prev;
+    });
+  }, [t.chatBox.welcome]);
 
   useEffect(() => {
     try {
@@ -125,7 +136,7 @@ export function FloatingChatBox({
   const handleClear = () => {
     handleStop();
     setError('');
-    setMessages([createWelcomeMessage(developerName)]);
+    setMessages([createWelcomeMessage(t.chatBox.welcome)]);
   };
 
   const handleSend = async (rawText: string) => {
@@ -133,6 +144,7 @@ export function FloatingChatBox({
     if (!trimmed || isStreaming) return;
 
     setError('');
+    setLastFailedPrompt('');
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -168,6 +180,7 @@ export function FloatingChatBox({
         mode,
         developerName,
         currency,
+        language,
         projects,
         services,
         inquiries,
@@ -185,12 +198,18 @@ export function FloatingChatBox({
       setError(
         err instanceof Error ? err.message : 'Unable to send message right now.'
       );
-      setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+      setLastFailedPrompt(trimmed);
+      setMessages((prev) =>
+        prev.filter((m) => m.id !== assistantId && m.id !== userMsg.id)
+      );
     } finally {
       abortRef.current = null;
       setIsStreaming(false);
     }
   };
+
+  const quickPrompts =
+    mode === 'client' ? t.chatBox.quickPromptsClient : t.chatBox.quickPromptsDev;
 
   return (
     <div className="no-print fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40">
@@ -198,16 +217,16 @@ export function FloatingChatBox({
         <section
           role="dialog"
           aria-label="Live AI Chat Box"
-          className="w-[calc(100vw-2rem)] sm:w-[390px] h-[520px] max-h-[80vh] bg-white border border-zinc-200 rounded-2xl shadow-lg flex flex-col overflow-hidden"
+          className="w-[calc(100vw-2rem)] sm:w-[400px] h-[520px] max-h-[80vh] bg-white border border-zinc-200 rounded-2xl shadow-lg flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="px-4 py-3 border-b border-zinc-200 flex items-center justify-between gap-2 bg-white">
             <div className="min-w-0">
               <h2 className="font-display text-sm font-semibold text-zinc-950 truncate">
-                Chat with {developerName} AI
+                {t.chatBox.headerTitle}
               </h2>
               <p className="text-[11px] text-zinc-500">
-                English · বাংলা · Banglish
+                {t.chatBox.headerSub}
               </p>
             </div>
 
@@ -244,31 +263,48 @@ export function FloatingChatBox({
             </div>
           </div>
 
-          {/* Role Toggle */}
-          <div className="px-4 py-2 border-b border-zinc-200 bg-zinc-50 flex items-center justify-between gap-2">
+          {/* Role Toggle + Language Switcher + Book Call */}
+          <div className="px-3.5 py-2 border-b border-zinc-200 bg-zinc-50 flex items-center justify-between gap-2">
             <div className="inline-flex p-0.5 bg-zinc-200/70 rounded-lg">
               <button
                 type="button"
                 onClick={() => setMode('client')}
-                className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
                   mode === 'client'
                     ? 'bg-white text-zinc-950 shadow-sm'
                     : 'text-zinc-600 hover:text-zinc-950'
                 }`}
               >
-                Client Q&A
+                {t.chatBox.clientMode}
               </button>
               <button
                 type="button"
                 onClick={() => setMode('architect')}
-                className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
                   mode === 'architect'
                     ? 'bg-white text-zinc-950 shadow-sm'
                     : 'text-zinc-600 hover:text-zinc-950'
                 }`}
               >
-                Dev Mode
+                {t.chatBox.devMode}
               </button>
+            </div>
+
+            <div className="inline-flex p-0.5 bg-zinc-200/70 rounded-lg">
+              {CHAT_LANG_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onChangeLanguage(opt.id)}
+                  className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors cursor-pointer whitespace-nowrap ${
+                    language === opt.id
+                      ? 'bg-white text-zinc-950 shadow-sm'
+                      : 'text-zinc-600 hover:text-zinc-950'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
 
             <button
@@ -279,7 +315,7 @@ export function FloatingChatBox({
               }}
               className="text-[11px] font-medium text-blue-700 hover:text-blue-800 whitespace-nowrap cursor-pointer"
             >
-              Book a Call →
+              {t.chatBox.bookCall}
             </button>
           </div>
 
@@ -302,7 +338,7 @@ export function FloatingChatBox({
                       : 'bg-white border border-zinc-200 text-zinc-800'
                   }`}
                 >
-                  {msg.text || (isStreaming ? 'Typing...' : '')}
+                  {msg.text || (isStreaming ? t.chatBox.typing : '')}
                 </div>
                 <span className="mt-1 text-[10px] text-zinc-400 tabular-nums">
                   {msg.timestamp}
@@ -311,8 +347,17 @@ export function FloatingChatBox({
             ))}
 
             {error && (
-              <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
-                {error}
+              <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center justify-between gap-2">
+                <span>{error}</span>
+                {lastFailedPrompt && (
+                  <button
+                    type="button"
+                    onClick={() => void handleSend(lastFailedPrompt)}
+                    className="px-2.5 py-1 text-[11px] font-medium bg-white border border-red-300 text-red-800 hover:bg-red-100 rounded-md shrink-0 cursor-pointer"
+                  >
+                    {t.chatBox.retryBtn}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -321,7 +366,7 @@ export function FloatingChatBox({
           <div className="p-3 border-t border-zinc-200 bg-white space-y-2.5">
             {messages.length <= 2 && (
               <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-                {QUICK_PROMPTS[mode].map((prompt) => (
+                {quickPrompts.map((prompt) => (
                   <button
                     key={prompt}
                     type="button"
@@ -347,7 +392,7 @@ export function FloatingChatBox({
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Type your message..."
+                placeholder={t.chatBox.placeholder}
                 className="flex-1 px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:border-blue-700"
               />
               {isStreaming ? (
@@ -380,7 +425,7 @@ export function FloatingChatBox({
           className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-zinc-950 hover:bg-blue-700 rounded-xl shadow-md transition-colors duration-150 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-blue-700 focus-visible:outline-offset-2"
         >
           <MessageSquare className="w-4 h-4" strokeWidth={1.75} />
-          <span>Chat</span>
+          <span>{t.chatBox.buttonLabel}</span>
         </button>
       )}
     </div>

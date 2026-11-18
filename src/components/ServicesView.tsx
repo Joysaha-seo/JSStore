@@ -1,40 +1,15 @@
 import { ArrowRight } from 'lucide-react';
 import { formatDevMoney } from '../data/initialDevData';
+import { TranslationPack } from '../i18n/translations';
 import { CurrencyCode, ServicePackage } from '../types/dev';
 
 interface ServicesViewProps {
   services: ServicePackage[];
   currency: CurrencyCode;
+  t: TranslationPack;
   onSelectPackage: (pkg: ServicePackage) => void;
   onOpenAiEstimator: () => void;
 }
-
-const CAPABILITIES = [
-  {
-    num: '01.',
-    title: 'Full-Stack Web Applications',
-    detail:
-      'End-to-end architecture in React, TypeScript, Next.js, and Node.js with strict type safety, clean REST/GraphQL APIs, and PostgreSQL data modeling.',
-  },
-  {
-    num: '02.',
-    title: 'Headless E-Commerce & POS Integrations',
-    detail:
-      'Fast conversion-focused storefronts paired with inventory sync, Cash on Delivery verification, Stripe, SSLCommerz/bKash, and printable invoicing.',
-  },
-  {
-    num: '03.',
-    title: 'Applied Gemini AI & Workflow Automation',
-    detail:
-      'Server-side LLM features including streaming customer copilots, structured JSON data extraction, document Q&A, and automated proposal generation.',
-  },
-  {
-    num: '04.',
-    title: 'Core Web Vitals & Legacy Refactoring',
-    detail:
-      'Bundle splitting, database query indexing, accessibility hardening (WCAG AA), and migrating brittle codebases to maintainable TypeScript modules.',
-  },
-];
 
 const TECH_STACK_GROUPS = [
   { label: 'Frontend', items: 'React 19 · Next.js · TypeScript · Tailwind CSS · Motion' },
@@ -46,6 +21,7 @@ const TECH_STACK_GROUPS = [
 export function ServicesView({
   services,
   currency,
+  t,
   onSelectPackage,
   onOpenAiEstimator,
 }: ServicesViewProps) {
@@ -54,25 +30,25 @@ export function ServicesView({
       {/* Capabilities Header */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-10 border-b border-zinc-200">
         <div className="lg:col-span-5">
-          <p className="text-xs font-medium text-zinc-500">Engineering Capabilities</p>
+          <p className="text-xs font-medium text-zinc-500">{t.services.kicker}</p>
           <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-zinc-950">
-            Clear Scope, Direct Code Ownership, and Measurable Speed.
+            {t.services.heading}
           </h1>
           <p className="mt-3 text-sm text-zinc-600 leading-relaxed">
-            Every engagement includes clean source repository handoff, deployment setup, and zero vendor lock-in.
+            {t.services.subcopy}
           </p>
           <button
             type="button"
             onClick={onOpenAiEstimator}
             className="mt-6 inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 rounded-lg transition-colors cursor-pointer"
           >
-            <span>Calculate Custom Estimate with AI</span>
+            <span>{t.services.ctaEstimate}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
 
         <div className="lg:col-span-7 divide-y divide-zinc-200 bg-white border border-zinc-200 rounded-xl">
-          {CAPABILITIES.map((cap) => (
+          {t.services.capabilities.map((cap) => (
             <div key={cap.num} className="p-5 flex items-start gap-4">
               <span className="font-mono text-xs font-semibold text-blue-700 pt-1 tabular-nums">
                 {cap.num}
@@ -92,10 +68,10 @@ export function ServicesView({
       <section className="space-y-6">
         <div>
           <h2 className="font-display text-2xl font-bold tracking-tight text-zinc-950">
-            Engagement Packages
+            {t.services.packagesHeading}
           </h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Fixed-scope sprints or monthly engineering retainers tailored to product stage.
+            {t.services.packagesSubheading}
           </p>
         </div>
 
@@ -116,7 +92,7 @@ export function ServicesView({
                 <p className="mt-1 text-xs text-zinc-500">{pkg.audience}</p>
 
                 <div className="mt-5 pb-5 border-b border-zinc-200">
-                  <span className="text-xs text-zinc-500">Starting at</span>
+                  <span className="text-xs text-zinc-500">{t.services.startingAt}</span>
                   <p className="font-mono text-2xl font-bold text-zinc-950 tabular-nums mt-0.5">
                     {formatDevMoney(pkg.startingPriceUsd, currency)}
                   </p>
@@ -141,7 +117,7 @@ export function ServicesView({
                 onClick={() => onSelectPackage(pkg)}
                 className="mt-7 w-full py-2.5 px-4 text-sm font-medium text-white bg-zinc-950 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
               >
-                Request {pkg.title}
+                {t.services.requestPrefix} {pkg.title}
               </button>
             </div>
           ))}
@@ -151,7 +127,7 @@ export function ServicesView({
       {/* Tech Stack Matrix */}
       <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-8">
         <h2 className="font-display text-lg font-semibold text-zinc-950 mb-4">
-          Core Production Stack
+          {t.services.stackHeading}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-2 border-t border-zinc-200">
           {TECH_STACK_GROUPS.map((group) => (

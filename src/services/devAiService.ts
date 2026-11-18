@@ -1,4 +1,5 @@
 import {
+  AppLanguage,
   CaseStudy,
   ChatMessage,
   ClientInquiry,
@@ -14,6 +15,7 @@ export async function streamDevAiChat(params: {
   mode: 'architect' | 'client';
   developerName: string;
   currency: CurrencyCode;
+  language?: AppLanguage;
   projects: CaseStudy[];
   services: ServicePackage[];
   inquiries: ClientInquiry[];
@@ -31,6 +33,7 @@ export async function streamDevAiChat(params: {
       devContext: {
         developerName: params.developerName,
         currency: params.currency,
+        language: params.language ?? 'en',
         projects: params.projects.map((p) => ({
           title: p.title,
           category: p.discipline,
@@ -121,6 +124,7 @@ export async function estimateProjectScope(params: {
   targetPlatform: string;
   urgency: string;
   currency: CurrencyCode;
+  language?: AppLanguage;
 }): Promise<ScopeEstimate> {
   const response = await fetch('/api/ai/estimate-scope', {
     method: 'POST',
@@ -139,7 +143,7 @@ export async function writeClientProposal(params: {
   projectTitle: string;
   clientBrief: string;
   budgetNote?: string;
-  language: 'en' | 'bn' | 'banglish';
+  language: 'en' | 'bn' | 'banglish' | 'hi';
 }): Promise<ProposalDraft> {
   const response = await fetch('/api/ai/write-proposal', {
     method: 'POST',

@@ -12,7 +12,9 @@ import {
   SERVICE_PACKAGES,
   TESTIMONIALS,
 } from './data/initialDevData';
+import { TRANSLATIONS } from './i18n/translations';
 import {
+  AppLanguage,
   CaseStudy,
   ClientInquiry,
   CurrencyCode,
@@ -24,7 +26,14 @@ const STORAGE_KEYS = {
   projects: 'dev_studio_projects_v1',
   inquiries: 'dev_studio_inquiries_v1',
   currency: 'dev_studio_currency_v1',
+  language: 'dev_studio_lang_v1',
 };
+
+const FOOTER_LANGUAGES: Array<{ id: AppLanguage; label: string }> = [
+  { id: 'en', label: 'English' },
+  { id: 'bn', label: 'বাংলা' },
+  { id: 'hi', label: 'हिन्दी' },
+];
 
 function loadSaved<T>(key: string, fallback: T): T {
   try {
@@ -46,6 +55,10 @@ function getNextInquiryId(inquiries: ClientInquiry[]): string {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<DevWorkspaceTab>('work');
+  const [language, setLanguage] = useState<AppLanguage>(() => {
+    const saved = loadSaved<AppLanguage>(STORAGE_KEYS.language, 'en');
+    return saved === 'bn' || saved === 'hi' || saved === 'en' ? saved : 'en';
+  });
   const [currency, setCurrency] = useState<CurrencyCode>(() =>
     loadSaved<CurrencyCode>(STORAGE_KEYS.currency, 'USD')
   );
@@ -60,6 +73,8 @@ export default function App() {
   const [inquiryDefaultTitle, setInquiryDefaultTitle] = useState('');
   const [preselectedInquiryForAi, setPreselectedInquiryForAi] =
     useState<ClientInquiry | null>(null);
+
+  const t = TRANSLATIONS[language];
 
   useEffect(() => {
     try {
@@ -84,6 +99,15 @@ export default function App() {
       // ignore
     }
   }, [currency]);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    try {
+      localStorage.setItem(STORAGE_KEYS.language, JSON.stringify(language));
+    } catch {
+      // ignore
+    }
+  }, [language]);
 
   const handleSubmitInquiry = (payload: {
     clientName: string;
@@ -165,6 +189,7 @@ export default function App() {
       <DevHeader
         brandName="Badhan.dev"
         activeTab={activeTab}
+        t={t}
         onSelectTab={setActiveTab}
         onOpenInquiry={() => {
           setInquiryDefaultTitle('');
@@ -177,6 +202,9 @@ export default function App() {
           <WorkView
             projects={projects}
             testimonials={TESTIMONIALS}
+            language={language}
+            onChangeLanguage={setLanguage}
+            t={t}
             onGoToAiEstimator={() => setActiveTab('ai-studio')}
             onGoToServices={() => setActiveTab('services')}
             onStartSimilarProject={(title) => {
@@ -190,6 +218,7 @@ export default function App() {
           <ServicesView
             services={SERVICE_PACKAGES}
             currency={currency}
+            t={t}
             onSelectPackage={(pkg) => {
               setInquiryDefaultTitle(pkg.title);
               setIsInquiryOpen(true);
@@ -203,6 +232,7 @@ export default function App() {
             inquiries={inquiries}
             projects={projects}
             currency={currency}
+            t={t}
             onUpdateInquiryStatus={handleUpdateInquiryStatus}
             onDeleteInquiry={handleDeleteInquiry}
             onSaveCaseStudy={handleSaveCaseStudy}
@@ -222,6 +252,8 @@ export default function App() {
           <DevAiStudioView
             developerName="Badhan Saha"
             currency={currency}
+            language={language}
+            t={t}
             projects={projects}
             services={SERVICE_PACKAGES}
             inquiries={inquiries}
@@ -237,12 +269,29 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-3">
             <span className="font-display font-semibold text-zinc-900">Badhan.dev</span>
             <span aria-hidden="true">·</span>
-            <span>Full-Stack Web Engineering & AI Integration</span>
+            <span>{t.footer.tagline}</span>
             <span aria-hidden="true">·</span>
             <span>© {new Date().getFullYear()}</span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex items-center gap-1 border border-zinc-200 rounded-lg p-0.5 bg-zinc-50">
+              {FOOTER_LANGUAGES.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setLanguage(opt.id)}
+                  className={`px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                    language === opt.id
+                      ? 'bg-white text-zinc-950 font-semibold shadow-sm'
+                      : 'text-zinc-500 hover:text-zinc-900'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
             <div className="inline-flex items-center gap-1 border border-zinc-200 rounded-lg p-0.5 bg-zinc-50">
               <button
                 type="button"
@@ -278,7 +327,7 @@ export default function App() {
               }}
               className="text-zinc-500 hover:text-zinc-900 underline underline-offset-2 cursor-pointer"
             >
-              Reset Demo Data
+              {t.footer.resetDemo}
             </button>
           </div>
         </div>
@@ -288,6 +337,7 @@ export default function App() {
         isOpen={isInquiryOpen}
         onClose={() => setIsInquiryOpen(false)}
         defaultProjectTitle={inquiryDefaultTitle}
+        t={t}
         onSubmitInquiry={handleSubmitInquiry}
         onViewInClientHub={() => setActiveTab('clients')}
       />
@@ -295,6 +345,9 @@ export default function App() {
       <FloatingChatBox
         developerName="Badhan Saha"
         currency={currency}
+        language={language}
+        onChangeLanguage={setLanguage}
+        t={t}
         projects={projects}
         services={SERVICE_PACKAGES}
         inquiries={inquiries}

@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, ArrowUpRight, Search, X } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Globe, Search, X } from 'lucide-react';
 import { HERO_DEV_IMAGE_URL } from '../data/initialDevData';
-import { CaseStudy, ProjectDiscipline, Testimonial } from '../types/dev';
+import { TranslationPack } from '../i18n/translations';
+import { AppLanguage, CaseStudy, ProjectDiscipline, Testimonial } from '../types/dev';
 import { ProductImage } from './ProductImage';
 
 interface WorkViewProps {
   projects: CaseStudy[];
   testimonials: Testimonial[];
+  language: AppLanguage;
+  onChangeLanguage: (lang: AppLanguage) => void;
+  t: TranslationPack;
   onGoToAiEstimator: () => void;
   onGoToServices: () => void;
   onStartSimilarProject: (projectTitle: string) => void;
@@ -20,9 +24,18 @@ const DISCIPLINES: Array<'All' | ProjectDiscipline> = [
   'AI Systems',
 ];
 
+const LANGUAGE_OPTIONS: Array<{ id: AppLanguage; label: string }> = [
+  { id: 'en', label: 'English' },
+  { id: 'bn', label: 'বাংলা' },
+  { id: 'hi', label: 'हिन्दी' },
+];
+
 export function WorkView({
   projects,
   testimonials,
+  language,
+  onChangeLanguage,
+  t,
   onGoToAiEstimator,
   onGoToServices,
   onStartSimilarProject,
@@ -61,9 +74,34 @@ export function WorkView({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-16">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch">
             <div className="lg:col-span-6 flex flex-col justify-center">
-              <p className="text-xs font-medium text-zinc-500 tracking-wide mb-3">
-                Full-Stack Web Developer · React, TypeScript, Node.js & AI
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <p className="text-xs font-medium text-zinc-500 tracking-wide">
+                  {t.hero.kicker}
+                </p>
+
+                <div
+                  role="group"
+                  aria-label={t.hero.languageLabel}
+                  className="inline-flex items-center gap-1 border border-zinc-200 rounded-lg p-0.5 bg-zinc-50 shrink-0"
+                >
+                  <Globe className="w-3.5 h-3.5 text-zinc-400 ml-1.5 mr-0.5" aria-hidden="true" />
+                  {LANGUAGE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => onChangeLanguage(opt.id)}
+                      className={`px-2 py-1 text-xs rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                        language === opt.id
+                          ? 'bg-white text-zinc-950 font-semibold shadow-sm'
+                          : 'text-zinc-500 hover:text-zinc-900'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <h1
                 className="font-display font-bold tracking-tight text-zinc-950 leading-[1.08]"
                 style={{
@@ -71,17 +109,17 @@ export function WorkView({
                   textWrap: 'balance',
                 }}
               >
-                I Design and Ship Production Web Apps, APIs, and AI Systems.
+                {t.hero.headline}
               </h1>
               <p className="mt-5 text-base text-zinc-600 leading-relaxed max-w-xl">
-                Independent software engineer building fast customer storefronts, multi-tenant SaaS dashboards, and reliable backend architectures for founders and growing teams.
+                {t.hero.subcopy}
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <a
                   href="#selected-work"
                   className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 rounded-lg transition-colors whitespace-nowrap shrink-0"
                 >
-                  <span>View Selected Work</span>
+                  <span>{t.hero.ctaPrimary}</span>
                   <ArrowRight className="w-4 h-4" />
                 </a>
                 <button
@@ -89,7 +127,7 @@ export function WorkView({
                   onClick={onGoToAiEstimator}
                   className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium text-zinc-900 bg-white border border-zinc-300 hover:border-zinc-950 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  <span>Estimate Project with AI</span>
+                  <span>{t.hero.ctaSecondary}</span>
                 </button>
               </div>
             </div>
@@ -108,38 +146,14 @@ export function WorkView({
 
           {/* 4-Column Proof Strip */}
           <div className="mt-10 pt-8 border-t border-zinc-200 grid grid-cols-2 lg:grid-cols-4 gap-6">
-            <div>
-              <p className="font-mono text-xl font-semibold text-zinc-950 tabular-nums">
-                34+
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Production web apps & APIs shipped since 2021
-              </p>
-            </div>
-            <div>
-              <p className="font-mono text-xl font-semibold text-zinc-950 tabular-nums">
-                99.95%
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Measured production uptime across managed deployments
-              </p>
-            </div>
-            <div>
-              <p className="font-mono text-xl font-semibold text-zinc-950 tabular-nums">
-                &lt; 450ms
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Median API response time across client platforms
-              </p>
-            </div>
-            <div>
-              <p className="font-mono text-xl font-semibold text-zinc-950 tabular-nums">
-                3–6 Weeks
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Typical sprint from technical spec to live launch
-              </p>
-            </div>
+            {t.hero.stats.map((stat, idx) => (
+              <div key={idx}>
+                <p className="font-mono text-xl font-semibold text-zinc-950 tabular-nums">
+                  {stat.value}
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">{stat.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -152,10 +166,10 @@ export function WorkView({
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-zinc-200">
           <div>
             <h2 className="font-display text-2xl font-bold tracking-tight text-zinc-950">
-              Selected Case Studies
+              {t.work.heading}
             </h2>
             <p className="mt-1 text-sm text-zinc-500">
-              Architecture decisions, shipped interfaces, and measurable business outcomes.
+              {t.work.subheading}
             </p>
           </div>
 
@@ -165,8 +179,8 @@ export function WorkView({
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter by stack or client..."
-              aria-label="Filter case studies"
+              placeholder={t.work.searchPlaceholder}
+              aria-label={t.work.searchPlaceholder}
               className="pl-9 pr-3 py-2 text-sm bg-white border border-zinc-200 rounded-lg w-60 focus:outline-none focus:border-blue-700"
             />
           </div>
@@ -185,7 +199,7 @@ export function WorkView({
                   : 'bg-white text-zinc-600 border border-zinc-200 hover:border-zinc-400 hover:text-zinc-950'
               }`}
             >
-              {disc}
+              {t.work.disciplines[disc]}
             </button>
           ))}
         </div>
@@ -193,7 +207,7 @@ export function WorkView({
         {filteredProjects.length === 0 ? (
           <div className="mt-10 py-14 text-center bg-white border border-zinc-200 rounded-xl">
             <p className="text-sm font-semibold text-zinc-900">
-              No case studies match this filter
+              {t.work.emptyTitle}
             </p>
             <button
               type="button"
@@ -203,7 +217,7 @@ export function WorkView({
               }}
               className="mt-3 px-4 py-2 text-xs font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50 cursor-pointer"
             >
-              Show All Work
+              {t.work.showAll}
             </button>
           </div>
         ) : (
@@ -260,7 +274,7 @@ export function WorkView({
                       onClick={() => setActiveCase(project)}
                       className="inline-flex items-center gap-1 text-xs font-medium text-zinc-950 hover:text-blue-700 whitespace-nowrap shrink-0 cursor-pointer"
                     >
-                      <span>Read Case</span>
+                      <span>{t.work.readCase}</span>
                       <ArrowUpRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -277,10 +291,10 @@ export function WorkView({
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-8 border-b border-zinc-200">
             <div>
               <h2 className="font-display text-2xl font-bold tracking-tight text-zinc-950">
-                Client Outcomes
+                {t.work.outcomesHeading}
               </h2>
               <p className="mt-1 text-sm text-zinc-500">
-                Direct feedback from engineering leaders and founders.
+                {t.work.outcomesSubheading}
               </p>
             </div>
             <button
@@ -288,7 +302,7 @@ export function WorkView({
               onClick={onGoToServices}
               className="text-sm font-medium text-blue-700 hover:text-blue-800 whitespace-nowrap cursor-pointer"
             >
-              View Service Packages →
+              {t.work.viewPackages}
             </button>
           </div>
 
@@ -358,25 +372,25 @@ export function WorkView({
                   {activeCase.title}
                 </h3>
                 <p className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                  Outcome: {activeCase.outcomeMetric}
+                  {t.work.modalOutcomePrefix} {activeCase.outcomeMetric}
                 </p>
 
                 <div>
-                  <p className="text-xs font-semibold text-zinc-900">The Challenge</p>
+                  <p className="text-xs font-semibold text-zinc-900">{t.work.modalChallenge}</p>
                   <p className="mt-1 text-sm text-zinc-600 leading-relaxed">
                     {activeCase.challenge}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs font-semibold text-zinc-900">Engineering Solution</p>
+                  <p className="text-xs font-semibold text-zinc-900">{t.work.modalSolution}</p>
                   <p className="mt-1 text-sm text-zinc-600 leading-relaxed">
                     {activeCase.solution}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs font-semibold text-zinc-900">Technical Stack</p>
+                  <p className="text-xs font-semibold text-zinc-900">{t.work.modalStack}</p>
                   <p className="mt-1 text-xs font-mono text-zinc-600">
                     {activeCase.stack.join(' · ')}
                   </p>
@@ -393,7 +407,7 @@ export function WorkView({
                   }}
                   className="flex-1 py-2.5 px-4 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 rounded-lg transition-colors cursor-pointer"
                 >
-                  Request Similar Build
+                  {t.work.requestSimilar}
                 </button>
                 {activeCase.liveUrl && (
                   <a
@@ -402,7 +416,7 @@ export function WorkView({
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 py-2.5 px-4 text-sm font-medium text-zinc-800 border border-zinc-200 hover:border-zinc-950 rounded-lg transition-colors whitespace-nowrap"
                   >
-                    <span>Live Preview</span>
+                    <span>{t.work.livePreview}</span>
                     <ArrowUpRight className="w-4 h-4" />
                   </a>
                 )}
