@@ -1,34 +1,31 @@
 import { useEffect, useState } from 'react';
-import { AiConciergeDrawer } from './components/AiConciergeDrawer';
-import { AiStudioView } from './components/AiStudioView';
-import { CartDrawer } from './components/CartDrawer';
-import { Header } from './components/Header';
-import { InventoryView } from './components/InventoryView';
-import { OrdersPosView } from './components/OrdersPosView';
-import { StorefrontView } from './components/StorefrontView';
-import { INITIAL_ORDERS, INITIAL_PRODUCTS } from './data/initialStoreData';
+import { ClientHubView } from './components/ClientHubView';
+import { DevAiStudioView } from './components/DevAiStudioView';
+import { DevHeader } from './components/DevHeader';
+import { ProjectInquiryModal } from './components/ProjectInquiryModal';
+import { ServicesView } from './components/ServicesView';
+import { WorkView } from './components/WorkView';
 import {
-  CartItem,
+  INITIAL_CASE_STUDIES,
+  INITIAL_INQUIRIES,
+  SERVICE_PACKAGES,
+  TESTIMONIALS,
+} from './data/initialDevData';
+import {
+  CaseStudy,
+  ClientInquiry,
   CurrencyCode,
-  Order,
-  OrderStatus,
-  PaymentMethod,
-  Product,
-  WorkspaceTab,
-} from './types/store';
-import {
-  getFreeDeliveryThresholdBdt,
-  getStandardDeliveryFeeBdt,
-} from './utils/currency';
+  DevWorkspaceTab,
+  InquiryStatus,
+} from './types/dev';
 
 const STORAGE_KEYS = {
-  products: 'js_store_products_v1',
-  orders: 'js_store_orders_v1',
-  cart: 'js_store_cart_v1',
-  currency: 'js_store_currency_v1',
+  projects: 'dev_studio_projects_v1',
+  inquiries: 'dev_studio_inquiries_v1',
+  currency: 'dev_studio_currency_v1',
 };
 
-function loadFromStorage<T>(key: string, fallback: T): T {
+function loadSaved<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
@@ -38,331 +35,198 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   }
 }
 
+function getNextInquiryId(inquiries: ClientInquiry[]): string {
+  const maxNum = inquiries.reduce((max, item) => {
+    const parsed = Number.parseInt(item.id.replace(/^REQ-/, ''), 10);
+    return Number.isFinite(parsed) && parsed > max ? parsed : max;
+  }, 208);
+  return `REQ-${maxNum + 1}`;
+}
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>('storefront');
+  const [activeTab, setActiveTab] = useState<DevWorkspaceTab>('work');
   const [currency, setCurrency] = useState<CurrencyCode>(() =>
-    loadFromStorage<CurrencyCode>(STORAGE_KEYS.currency, 'BDT')
+    loadSaved<CurrencyCode>(STORAGE_KEYS.currency, 'USD')
   );
-  const [products, setProducts] = useState<Product[]>(() =>
-    loadFromStorage<Product[]>(STORAGE_KEYS.products, INITIAL_PRODUCTS)
+  const [projects, setProjects] = useState<CaseStudy[]>(() =>
+    loadSaved<CaseStudy[]>(STORAGE_KEYS.projects, INITIAL_CASE_STUDIES)
   );
-  const [orders, setOrders] = useState<Order[]>(() =>
-    loadFromStorage<Order[]>(STORAGE_KEYS.orders, INITIAL_ORDERS)
-  );
-  const [cart, setCart] = useState<CartItem[]>(() =>
-    loadFromStorage<CartItem[]>(STORAGE_KEYS.cart, [])
+  const [inquiries, setInquiries] = useState<ClientInquiry[]>(() =>
+    loadSaved<ClientInquiry[]>(STORAGE_KEYS.inquiries, INITIAL_INQUIRIES)
   );
 
-  const [isBagOpen, setIsBagOpen] = useState(false);
-  const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
-  const [aiDrawerPrompt, setAiDrawerPrompt] = useState<string | undefined>(undefined);
-  const [preselectedCopyProductId, setPreselectedCopyProductId] = useState<string | null>(
-    null
-  );
+  const [isInquiryOpen, setIsInquiryOpen] = useState(false);
+  const [inquiryDefaultTitle, setInquiryDefaultTitle] = useState('');
+  const [preselectedInquiryForAi, setPreselectedInquiryForAi] =
+    useState<ClientInquiry | null>(null);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
+      localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(projects));
     } catch {
-      // ignore storage quota
+      // ignore
     }
-  }, [products]);
+  }, [projects]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(orders));
+      localStorage.setItem(STORAGE_KEYS.inquiries, JSON.stringify(inquiries));
     } catch {
-      // ignore storage quota
+      // ignore
     }
-  }, [orders]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.cart, JSON.stringify(cart));
-    } catch {
-      // ignore storage quota
-    }
-  }, [cart]);
+  }, [inquiries]);
 
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.currency, JSON.stringify(currency));
     } catch {
-      // ignore storage quota
+      // ignore
     }
   }, [currency]);
 
-  const bagCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-
-  const handleAddToBag = (productId: string, variant: string) => {
-    const product = products.find((p) => p.id === productId);
-    if (!product || product.stock <= 0) return;
-
-    setCart((prev) => {
-      const existing = prev.find(
-        (item) => item.productId === productId && item.variant === variant
-      );
-      if (existing) {
-        if (existing.quantity >= product.stock) return prev;
-        return prev.map((item) =>
-          item.productId === productId && item.variant === variant
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { productId, variant, quantity: 1 }];
-    });
-  };
-
-  const handleUpdateCartQty = (productId: string, variant: string, delta: number) => {
-    const product = products.find((p) => p.id === productId);
-    setCart((prev) =>
-      prev
-        .map((item) => {
-          if (item.productId !== productId || item.variant !== variant) return item;
-          const nextQty = item.quantity + delta;
-          if (nextQty <= 0) return null;
-          if (product && nextQty > product.stock) return item;
-          return { ...item, quantity: nextQty };
-        })
-        .filter((item): item is CartItem => item !== null)
-    );
-  };
-
-  const handleRemoveCartItem = (productId: string, variant: string) => {
-    setCart((prev) =>
-      prev.filter((item) => !(item.productId === productId && item.variant === variant))
-    );
-  };
-
-  const deductStock = (items: Array<{ productId: string; quantity: number }>) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        const orderedQty = items
-          .filter((i) => i.productId === p.id)
-          .reduce((sum, i) => sum + i.quantity, 0);
-        if (orderedQty === 0) return p;
-        return { ...p, stock: Math.max(0, p.stock - orderedQty) };
-      })
-    );
-  };
-
-  const handlePlaceStorefrontOrder = (payload: {
-    customerName: string;
-    customerPhone: string;
-    shippingAddress: string;
-    postalCode: string;
-    paymentMethod: PaymentMethod;
-  }): Order => {
-    const orderItems = cart
-      .map((item) => {
-        const prod = products.find((p) => p.id === item.productId);
-        if (!prod) return null;
-        return {
-          productId: prod.id,
-          sku: prod.sku,
-          name: prod.name,
-          variant: item.variant,
-          quantity: item.quantity,
-          unitPrice: prod.price,
-          unitCost: prod.cost,
-        };
-      })
-      .filter((i): i is NonNullable<typeof i> => i !== null);
-
-    const subtotal = orderItems.reduce(
-      (sum, item) => sum + item.unitPrice * item.quantity,
-      0
-    );
-    const deliveryFee =
-      subtotal >= getFreeDeliveryThresholdBdt() || subtotal === 0
-        ? 0
-        : getStandardDeliveryFeeBdt();
-
-    const nextNumber = 1042 + orders.length;
-    const newOrder: Order = {
-      id: `JS-${nextNumber}`,
+  const handleSubmitInquiry = (payload: {
+    clientName: string;
+    clientEmail: string;
+    company: string;
+    projectTitle: string;
+    brief: string;
+    budgetUsd: number;
+    timelineWeeks: number;
+    recommendedStack: string[];
+  }): ClientInquiry => {
+    const created: ClientInquiry = {
+      id: getNextInquiryId(inquiries),
       createdAt: new Date().toISOString(),
-      customerName: payload.customerName,
-      customerPhone: payload.customerPhone,
-      shippingAddress: payload.shippingAddress,
-      postalCode: payload.postalCode,
-      channel: 'Storefront',
-      paymentMethod: payload.paymentMethod,
-      status: payload.paymentMethod === 'Cash on Delivery' ? 'Pending COD' : 'Completed',
-      discountPercent: 0,
-      subtotal,
-      deliveryFee,
-      total: subtotal + deliveryFee,
-      items: orderItems,
+      clientName: payload.clientName,
+      clientEmail: payload.clientEmail,
+      company: payload.company,
+      projectTitle: payload.projectTitle,
+      brief: payload.brief,
+      budgetUsd: payload.budgetUsd,
+      timelineWeeks: payload.timelineWeeks,
+      status: 'New Lead',
+      recommendedStack: payload.recommendedStack,
     };
-
-    deductStock(orderItems);
-    setOrders((prev) => [newOrder, ...prev]);
-    setCart([]);
-    return newOrder;
+    setInquiries((prev) => [created, ...prev]);
+    return created;
   };
 
-  const handleCreatePosOrder = (payload: {
-    customerName: string;
-    customerPhone: string;
-    paymentMethod: PaymentMethod;
-    discountPercent: number;
-    items: Array<{ productId: string; variant: string; quantity: number }>;
-  }): Order => {
-    const orderItems = payload.items
-      .map((item) => {
-        const prod = products.find((p) => p.id === item.productId);
-        if (!prod) return null;
-        return {
-          productId: prod.id,
-          sku: prod.sku,
-          name: prod.name,
-          variant: item.variant,
-          quantity: item.quantity,
-          unitPrice: prod.price,
-          unitCost: prod.cost,
-        };
-      })
-      .filter((i): i is NonNullable<typeof i> => i !== null);
-
-    const subtotal = orderItems.reduce(
-      (sum, item) => sum + item.unitPrice * item.quantity,
-      0
-    );
-    const discountAmount = Math.round((subtotal * payload.discountPercent) / 100);
-    const total = Math.max(0, subtotal - discountAmount);
-
-    const nextNumber = 1042 + orders.length;
-    const newOrder: Order = {
-      id: `JS-${nextNumber}`,
+  const handleSaveEstimateAsLead = (payload: {
+    projectTitle: string;
+    brief: string;
+    budgetUsd: number;
+    timelineWeeks: number;
+    recommendedStack: string[];
+  }): ClientInquiry => {
+    const created: ClientInquiry = {
+      id: getNextInquiryId(inquiries),
       createdAt: new Date().toISOString(),
-      customerName: payload.customerName,
-      customerPhone: payload.customerPhone,
-      shippingAddress: 'Walk-in Showroom Counter',
-      channel: 'Counter POS',
-      paymentMethod: payload.paymentMethod,
-      status: payload.paymentMethod === 'Cash on Delivery' ? 'Pending COD' : 'Completed',
-      discountPercent: payload.discountPercent,
-      subtotal,
-      deliveryFee: 0,
-      total,
-      items: orderItems,
+      clientName: 'Prospective Client (AI Estimate)',
+      clientEmail: 'pending@client.com',
+      company: 'AI Scoped Lead',
+      projectTitle: payload.projectTitle,
+      brief: payload.brief,
+      budgetUsd: payload.budgetUsd,
+      timelineWeeks: payload.timelineWeeks,
+      status: 'New Lead',
+      recommendedStack: payload.recommendedStack,
     };
-
-    deductStock(orderItems);
-    setOrders((prev) => [newOrder, ...prev]);
-    return newOrder;
+    setInquiries((prev) => [created, ...prev]);
+    return created;
   };
 
-  const handleUpdateOrderStatus = (orderId: string, status: OrderStatus) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status } : o))
+  const handleUpdateInquiryStatus = (id: string, status: InquiryStatus) => {
+    setInquiries((prev) =>
+      prev.map((inq) => (inq.id === id ? { ...inq, status } : inq))
     );
   };
 
-  const handleAdjustStock = (productId: string, delta: number) => {
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === productId ? { ...p, stock: Math.max(0, p.stock + delta) } : p
-      )
-    );
+  const handleDeleteInquiry = (id: string) => {
+    setInquiries((prev) => prev.filter((inq) => inq.id !== id));
   };
 
-  const handleSaveProduct = (product: Product) => {
-    setProducts((prev) => {
-      const exists = prev.some((p) => p.id === product.id);
+  const handleSaveCaseStudy = (project: CaseStudy) => {
+    setProjects((prev) => {
+      const exists = prev.some((p) => p.id === project.id);
       if (exists) {
-        return prev.map((p) => (p.id === product.id ? product : p));
+        return prev.map((p) => (p.id === project.id ? project : p));
       }
-      return [product, ...prev];
+      return [project, ...prev];
     });
   };
 
-  const handleDeleteProduct = (productId: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== productId));
-    setCart((prev) => prev.filter((item) => item.productId !== productId));
-  };
-
-  const handleApplyDescriptionToProduct = (
-    productId: string,
-    description: string,
-    specs: string[]
-  ) => {
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === productId
-          ? {
-              ...p,
-              description,
-              specs: specs.length > 0 ? specs : p.specs,
-            }
-          : p
-      )
-    );
-  };
-
-  const handleResetDemoData = () => {
-    setProducts(INITIAL_PRODUCTS);
-    setOrders(INITIAL_ORDERS);
-    setCart([]);
+  const handleDeleteCaseStudy = (id: string) => {
+    setProjects((prev) => prev.filter((p) => p.id !== id));
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F9FA] text-zinc-950">
-      <Header
+      <DevHeader
+        brandName="Badhan.dev"
         activeTab={activeTab}
         onSelectTab={setActiveTab}
-        bagCount={bagCount}
-        onOpenBag={() => setIsBagOpen(true)}
+        onOpenInquiry={() => {
+          setInquiryDefaultTitle('');
+          setIsInquiryOpen(true);
+        }}
       />
 
       <main className="flex-1">
-        {activeTab === 'storefront' && (
-          <StorefrontView
-            products={products}
-            currency={currency}
-            onAddToBag={handleAddToBag}
-            onOpenAiConcierge={(prompt) => {
-              setAiDrawerPrompt(prompt);
-              setIsAiDrawerOpen(true);
+        {activeTab === 'work' && (
+          <WorkView
+            projects={projects}
+            testimonials={TESTIMONIALS}
+            onGoToAiEstimator={() => setActiveTab('ai-studio')}
+            onGoToServices={() => setActiveTab('services')}
+            onStartSimilarProject={(title) => {
+              setInquiryDefaultTitle(title);
+              setIsInquiryOpen(true);
             }}
-            onGoToBusinessHub={() => setActiveTab('orders')}
           />
         )}
 
-        {activeTab === 'orders' && (
-          <OrdersPosView
-            products={products}
-            orders={orders}
+        {activeTab === 'services' && (
+          <ServicesView
+            services={SERVICE_PACKAGES}
             currency={currency}
-            onCreatePosOrder={handleCreatePosOrder}
-            onUpdateOrderStatus={handleUpdateOrderStatus}
+            onSelectPackage={(pkg) => {
+              setInquiryDefaultTitle(pkg.title);
+              setIsInquiryOpen(true);
+            }}
+            onOpenAiEstimator={() => setActiveTab('ai-studio')}
           />
         )}
 
-        {activeTab === 'inventory' && (
-          <InventoryView
-            products={products}
+        {activeTab === 'clients' && (
+          <ClientHubView
+            inquiries={inquiries}
+            projects={projects}
             currency={currency}
-            onAdjustStock={handleAdjustStock}
-            onSaveProduct={handleSaveProduct}
-            onDeleteProduct={handleDeleteProduct}
-            onOpenAiCopyForProduct={(productId) => {
-              setPreselectedCopyProductId(productId);
+            onUpdateInquiryStatus={handleUpdateInquiryStatus}
+            onDeleteInquiry={handleDeleteInquiry}
+            onSaveCaseStudy={handleSaveCaseStudy}
+            onDeleteCaseStudy={handleDeleteCaseStudy}
+            onOpenAiProposalForInquiry={(inq) => {
+              setPreselectedInquiryForAi(inq);
               setActiveTab('ai-studio');
+            }}
+            onOpenInquiryModal={() => {
+              setInquiryDefaultTitle('');
+              setIsInquiryOpen(true);
             }}
           />
         )}
 
         {activeTab === 'ai-studio' && (
-          <AiStudioView
-            products={products}
-            orders={orders}
+          <DevAiStudioView
+            developerName="Badhan Saha"
             currency={currency}
-            preselectedProductId={preselectedCopyProductId}
-            onConsumePreselectedProduct={() => setPreselectedCopyProductId(null)}
-            onApplyDescriptionToProduct={handleApplyDescriptionToProduct}
+            projects={projects}
+            services={SERVICE_PACKAGES}
+            inquiries={inquiries}
+            preselectedInquiry={preselectedInquiryForAi}
+            onConsumePreselectedInquiry={() => setPreselectedInquiryForAi(null)}
+            onSaveEstimateAsLead={handleSaveEstimateAsLead}
           />
         )}
       </main>
@@ -370,26 +234,15 @@ export default function App() {
       <footer className="border-t border-zinc-200 bg-white mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-zinc-500">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="font-display font-semibold text-zinc-900">JS Store</span>
+            <span className="font-display font-semibold text-zinc-900">Badhan.dev</span>
             <span aria-hidden="true">·</span>
-            <span>Dhaka Showroom & Nationwide Delivery</span>
+            <span>Full-Stack Web Engineering & AI Integration</span>
             <span aria-hidden="true">·</span>
-            <span>© {new Date().getFullYear()} JS Store</span>
+            <span>© {new Date().getFullYear()}</span>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="inline-flex items-center gap-1 border border-zinc-200 rounded-lg p-0.5 bg-zinc-50">
-              <button
-                type="button"
-                onClick={() => setCurrency('BDT')}
-                className={`px-2.5 py-1 rounded-md font-mono text-xs transition-colors cursor-pointer ${
-                  currency === 'BDT'
-                    ? 'bg-white text-zinc-950 font-semibold shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-900'
-                }`}
-              >
-                BDT ৳
-              </button>
               <button
                 type="button"
                 onClick={() => setCurrency('USD')}
@@ -401,40 +254,41 @@ export default function App() {
               >
                 USD $
               </button>
+              <button
+                type="button"
+                onClick={() => setCurrency('BDT')}
+                className={`px-2.5 py-1 rounded-md font-mono text-xs transition-colors cursor-pointer ${
+                  currency === 'BDT'
+                    ? 'bg-white text-zinc-950 font-semibold shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-900'
+                }`}
+              >
+                BDT ৳
+              </button>
             </div>
 
             <button
               type="button"
-              onClick={handleResetDemoData}
+              onClick={() => {
+                setProjects(INITIAL_CASE_STUDIES);
+                setInquiries(INITIAL_INQUIRIES);
+                sessionStorage.removeItem('dev_ai_last_estimate');
+                sessionStorage.removeItem('dev_ai_last_proposal');
+              }}
               className="text-zinc-500 hover:text-zinc-900 underline underline-offset-2 cursor-pointer"
             >
-              Reset Store Data
+              Reset Demo Data
             </button>
           </div>
         </div>
       </footer>
 
-      <CartDrawer
-        isOpen={isBagOpen}
-        onClose={() => setIsBagOpen(false)}
-        cart={cart}
-        products={products}
-        currency={currency}
-        onUpdateQty={handleUpdateCartQty}
-        onRemoveItem={handleRemoveCartItem}
-        onPlaceOrder={handlePlaceStorefrontOrder}
-        onViewOrders={() => setActiveTab('orders')}
-      />
-
-      <AiConciergeDrawer
-        isOpen={isAiDrawerOpen}
-        onClose={() => setIsAiDrawerOpen(false)}
-        initialPrompt={aiDrawerPrompt}
-        onConsumeInitialPrompt={() => setAiDrawerPrompt(undefined)}
-        products={products}
-        orders={orders}
-        currency={currency}
-        onOpenFullStudio={() => setActiveTab('ai-studio')}
+      <ProjectInquiryModal
+        isOpen={isInquiryOpen}
+        onClose={() => setIsInquiryOpen(false)}
+        defaultProjectTitle={inquiryDefaultTitle}
+        onSubmitInquiry={handleSubmitInquiry}
+        onViewInClientHub={() => setActiveTab('clients')}
       />
     </div>
   );

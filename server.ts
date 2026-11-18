@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express, { Request, Response } from 'express';
+import express, { type Request, type Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
@@ -32,7 +32,12 @@ function formatAiError(err: unknown): { status: number; message: string } {
   if (raw.includes('GEMINI_API_KEY')) {
     return { status: 400, message: raw };
   }
-  if (raw.includes('PERMISSION_DENIED') || raw.includes('API_KEY_INVALID') || raw.includes('403') || raw.includes('400')) {
+  if (
+    raw.includes('PERMISSION_DENIED') ||
+    raw.includes('API_KEY_INVALID') ||
+    raw.includes('403') ||
+    raw.includes('400')
+  ) {
     return {
       status: 400,
       message: 'Gemini API key is invalid or missing permissions. Check Settings > Secrets.',
@@ -47,29 +52,40 @@ function formatAiError(err: unknown): { status: number; message: string } {
   return { status: 500, message: raw || 'Failed to generate AI response.' };
 }
 
-interface StoreContextPayload {
-  currency: 'BDT' | 'USD';
-  products: Array<{
-    id: string;
-    sku: string;
-    name: string;
+function parseAiJson<T>(rawText: string | undefined): T {
+  const cleaned = (rawText ?? '')
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  if (!cleaned) {
+    throw new Error('Model returned an empty JSON payload.');
+  }
+  return JSON.parse(cleaned) as T;
+}
+
+interface DevContextPayload {
+  developerName: string;
+  currency: 'USD' | 'BDT';
+  projects: Array<{
+    title: string;
     category: string;
-    price: number;
-    cost: number;
-    stock: number;
-    lowStockThreshold: number;
-    description: string;
-    specs: string[];
+    stack: string[];
+    outcomeMetric: string;
+    year: string;
   }>;
-  orders: Array<{
+  services: Array<{
+    title: string;
+    timeline: string;
+    startingPriceUsd: number;
+  }>;
+  inquiries: Array<{
     id: string;
-    createdAt: string;
-    customerName: string;
-    channel: string;
-    paymentMethod: string;
+    clientName: string;
+    projectTitle: string;
     status: string;
-    total: number;
-    items: Array<{ name: string; quantity: number; unitPrice: number }>;
+    budgetUsd: number;
   }>;
 }
 
@@ -81,19 +97,19 @@ async function startServer() {
     res.json({ ok: true });
   });
 
-  app.post('/api/ai/chat', async (req: Request, res: Response) => {
+  app.post('/api/ai/dev-chat', async (req: Request, res: Response) => {
     try {
       const ai = createAiClient();
       const {
         message,
         history = [],
-        mode = 'business',
-        storeContext,
+        mode = 'architect',
+        devContext,
       } = req.body as {
         message: string;
         history?: Array<{ role: 'user' | 'model'; text: string }>;
-        mode?: 'business' | 'shopper';
-        storeContext?: StoreContextPayload;
+        mode?: 'architect' | 'client';
+        devContext?: DevContextPayload;
       };
 
       if (!message || !message.trim()) {
@@ -101,37 +117,46 @@ async function startServer() {
         return;
       }
 
-      const currencySymbol = storeContext?.currency === 'USD' ? '$' : '৳';
-      const productsSummary = (storeContext?.products ?? [])
+      const projectsSummary = (devContext?.projects ?? [])
         .map(
           (p) =>
-            `- ${p.name} (SKU: ${p.sku}, Category: ${p.category}, Price: ${currencySymbol}${p.price}, Cost: ${currencySymbol}${p.cost}, Stock: ${p.stock} units, Low-stock alert at: ${p.lowStockThreshold})`
+            `- ${p.title} (${p.category}, ${p.year}): Stack [${p.stack.join(', ')}] | Outcome: ${p.outcomeMetric}`
         )
         .join('\n');
 
-      const ordersSummary = (storeContext?.orders ?? [])
-        .slice(0, 15)
+      const servicesSummary = (devContext?.services ?? [])
         .map(
-          (o) =>
-            `- ${o.id}: ${o.customerName} via ${o.channel} (${o.paymentMethod}) | Status: ${o.status} | Total: ${currencySymbol}${o.total} | Items: ${o.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}`
+          (s) =>
+            `- ${s.title}: Starting $${s.startingPriceUsd} (${s.timeline})`
+        )
+        .join('\n');
+
+      const inquiriesSummary = (devContext?.inquiries ?? [])
+        .slice(0, 10)
+        .map(
+          (i) =>
+            `- ${i.id}: ${i.clientName} — "${i.projectTitle}" | Status: ${i.status} | Est. $${i.budgetUsd}`
         )
         .join('\n');
 
       const systemInstruction =
-        mode === 'shopper'
-          ? `You are the JS Store AI Shopping Concierge. Help customers explore products, compare specifications, check availability, and choose gifts within their budget.
-Respond in the exact language or style the customer uses (English, Bangla / বাংলা, or Banglish). Keep answers helpful, concise, and grounded strictly in JS Store's current catalog below. Never invent products or prices not listed here.
+        mode === 'client'
+          ? `You are the AI Studio Assistant for ${devContext?.developerName || 'Badhan Saha'}, a full-stack web developer. Help prospective clients understand services, timelines, realistic budgets, and relevant past case studies.
+Respond in the same language the user writes in (English, বাংলা, or Banglish). Keep responses concise, transparent, and grounded strictly in the portfolio and pricing below.
 
-Current JS Store Catalog (${storeContext?.currency ?? 'BDT'}):
-${productsSummary || 'No products currently listed.'}`
-          : `You are the JS Store AI Business & Operations Copilot. You assist the store owner and team with inventory planning, pricing & profit margin analysis, Cash on Delivery (COD) operations, customer replies, and Facebook/Instagram/WhatsApp marketing copy.
-Respond in the language style the user writes in (English, Bangla / বাংলা, or Banglish). Keep recommendations actionable, grounded strictly in JS Store's live inventory and recent orders below, and use clear bullet points or clean tables.
+Selected Case Studies:
+${projectsSummary || 'None listed.'}
 
-Live Inventory (${storeContext?.currency ?? 'BDT'}):
-${productsSummary || 'No inventory items.'}
+Service Packages:
+${servicesSummary || 'Custom web engineering.'}`
+          : `You are an experienced Principal Full-Stack Engineer & Freelance Technical Advisor assisting ${devContext?.developerName || 'Badhan Saha'}. Help with system architecture, React/Next.js/TypeScript/Node/PostgreSQL decisions, client scope breakdown, and freelance business strategy.
+Respond in the language style the user writes in (English, বাংলা, or Banglish). Be direct, practical, and structured.
 
-Recent Orders:
-${ordersSummary || 'No orders recorded yet.'}`;
+Portfolio Projects:
+${projectsSummary || 'None listed.'}
+
+Active Client Pipeline:
+${inquiriesSummary || 'No active inquiries.'}`;
 
       const contents = [
         ...history.slice(-10).map((turn) => ({
@@ -145,6 +170,11 @@ ${ordersSummary || 'No orders recorded yet.'}`;
       res.setHeader('Cache-Control', 'no-cache, no-transform');
       res.setHeader('Connection', 'keep-alive');
 
+      let clientClosed = false;
+      req.on('close', () => {
+        clientClosed = true;
+      });
+
       const stream = await ai.models.generateContentStream({
         model: MODEL_NAME,
         contents,
@@ -155,14 +185,17 @@ ${ordersSummary || 'No orders recorded yet.'}`;
       });
 
       for await (const chunk of stream) {
+        if (clientClosed) break;
         const text = chunk.text;
         if (text) {
           res.write(`data: ${JSON.stringify({ text })}\n\n`);
         }
       }
 
-      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-      res.end();
+      if (!clientClosed) {
+        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+        res.end();
+      }
     } catch (err) {
       const { status, message } = formatAiError(err);
       if (!res.headersSent) {
@@ -174,81 +207,93 @@ ${ordersSummary || 'No orders recorded yet.'}`;
     }
   });
 
-  app.post('/api/ai/product-copy', async (req: Request, res: Response) => {
+  app.post('/api/ai/estimate-scope', async (req: Request, res: Response) => {
     try {
       const ai = createAiClient();
       const {
-        productName,
-        category,
-        price,
-        currency = 'BDT',
-        notes = '',
-        language = 'en',
+        projectIdea,
+        targetPlatform = 'Full-Stack Web App',
+        urgency = 'Standard (4-8 weeks)',
+        currency = 'USD',
       } = req.body as {
-        productName: string;
-        category: string;
-        price: number;
-        currency?: 'BDT' | 'USD';
-        notes?: string;
-        language?: 'en' | 'bn' | 'banglish';
+        projectIdea: string;
+        targetPlatform?: string;
+        urgency?: string;
+        currency?: 'USD' | 'BDT';
       };
 
-      if (!productName || !productName.trim()) {
-        res.status(400).json({ error: 'Product name is required.' });
+      if (!projectIdea || !projectIdea.trim()) {
+        res.status(400).json({ error: 'Project idea description is required.' });
         return;
       }
 
-      const symbol = currency === 'USD' ? '$' : '৳';
-      const langInstruction =
-        language === 'bn'
-          ? 'Write all marketing copy (description, highlights, Facebook caption, WhatsApp message) in natural, fluent Bengali (বাংলা script).'
-          : language === 'banglish'
-            ? 'Write the storefront description in clean English, and write the Facebook/Instagram caption and WhatsApp promo message in natural urban Bangladeshi Banglish (conversational mix of Bengali and English in Latin script).'
-            : 'Write all copy in crisp, modern commercial English.';
-
       const response = await ai.models.generateContent({
         model: MODEL_NAME,
-        contents: `Generate storefront listing and social marketing copy for JS Store.
-Product Name: ${productName}
-Category: ${category}
-Selling Price: ${symbol}${price}
-Owner Notes / Key Details: ${notes || 'Standard retail quality, 1-year JS Store warranty, Cash on Delivery available.'}`,
+        contents: `Break down a full technical scope, stack recommendation, timeline, and realistic freelance/agency cost estimate for this web development brief.
+Brief: ${projectIdea}
+Target Platform: ${targetPlatform}
+Timeline Preference: ${urgency}
+Preferred Currency Display Note: ${currency} (provide estimatedCostUsd as an integer in USD).`,
         config: {
-          systemInstruction: `You are JS Store's senior merchandising copywriter. ${langInstruction} Keep descriptions concise, accurate, and high-converting without spammy emojis or exaggerated claims.`,
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          systemInstruction:
+            'You are a pragmatic full-stack web architect and technical estimator. Understand briefs in English, Bangla, or Banglish, and produce clean, realistic engineering plans in clear English.',
+          thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              description: {
-                type: Type.STRING,
-                description: '2-sentence clean storefront product description.',
-              },
-              highlights: {
+              projectTitle: { type: Type.STRING },
+              executiveSummary: { type: Type.STRING },
+              recommendedStack: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
-                description: '4 concise product feature specifications.',
               },
-              facebookPost: {
-                type: Type.STRING,
-                description: 'Ready-to-publish Facebook/Instagram caption with price and COD note.',
+              coreModules: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    moduleName: { type: Type.STRING },
+                    deliverables: { type: Type.STRING },
+                    estimatedDays: { type: Type.INTEGER },
+                  },
+                  required: ['moduleName', 'deliverables', 'estimatedDays'],
+                },
               },
-              whatsappMessage: {
-                type: Type.STRING,
-                description: 'Short direct WhatsApp broadcast message for regular customers.',
+              milestones: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    phase: { type: Type.STRING },
+                    duration: { type: Type.STRING },
+                    outcome: { type: Type.STRING },
+                  },
+                  required: ['phase', 'duration', 'outcome'],
+                },
               },
-              seoTags: {
+              totalWeeks: { type: Type.INTEGER },
+              estimatedCostUsd: { type: Type.INTEGER },
+              technicalRisks: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
-                description: '5 clean search keywords.',
               },
             },
-            required: ['description', 'highlights', 'facebookPost', 'whatsappMessage', 'seoTags'],
+            required: [
+              'projectTitle',
+              'executiveSummary',
+              'recommendedStack',
+              'coreModules',
+              'milestones',
+              'totalWeeks',
+              'estimatedCostUsd',
+              'technicalRisks',
+            ],
           },
         },
       });
 
-      const parsed = JSON.parse((response.text ?? '{}').trim());
+      const parsed = parseAiJson<Record<string, unknown>>(response.text);
       res.json(parsed);
     } catch (err) {
       const { status, message } = formatAiError(err);
@@ -256,108 +301,68 @@ Owner Notes / Key Details: ${notes || 'Standard retail quality, 1-year JS Store 
     }
   });
 
-  app.post('/api/ai/business-insights', async (req: Request, res: Response) => {
+  app.post('/api/ai/write-proposal', async (req: Request, res: Response) => {
     try {
       const ai = createAiClient();
-      const { currency = 'BDT', products = [], orders = [] } = req.body as StoreContextPayload;
-      const symbol = currency === 'USD' ? '$' : '৳';
+      const {
+        clientName,
+        projectTitle,
+        clientBrief,
+        budgetNote,
+        language = 'en',
+      } = req.body as {
+        clientName: string;
+        projectTitle: string;
+        clientBrief: string;
+        budgetNote?: string;
+        language?: 'en' | 'bn' | 'banglish';
+      };
 
-      const inventoryData = products.map((p) => {
-        const marginPct = p.price > 0 ? Math.round(((p.price - p.cost) / p.price) * 100) : 0;
-        return {
-          sku: p.sku,
-          name: p.name,
-          category: p.category,
-          price: `${symbol}${p.price}`,
-          cost: `${symbol}${p.cost}`,
-          marginPct: `${marginPct}%`,
-          stock: p.stock,
-          lowStockThreshold: p.lowStockThreshold,
-        };
-      });
+      if (!clientBrief || !clientBrief.trim()) {
+        res.status(400).json({ error: 'Client brief is required.' });
+        return;
+      }
 
-      const orderStats = orders.map((o) => ({
-        id: o.id,
-        channel: o.channel,
-        paymentMethod: o.paymentMethod,
-        status: o.status,
-        total: `${symbol}${o.total}`,
-        items: o.items.map((i) => `${i.quantity}x ${i.name}`),
-      }));
+      const langInstruction =
+        language === 'bn'
+          ? 'Write the proposal email and WhatsApp message in natural, professional Bengali (বাংলা script).'
+          : language === 'banglish'
+            ? 'Write the formal proposal email in crisp English, and write the WhatsApp quick pitch in friendly urban Banglish.'
+            : 'Write all sections in crisp, persuasive commercial English.';
 
       const response = await ai.models.generateContent({
         model: MODEL_NAME,
-        contents: `Analyze JS Store's current inventory and orders snapshot and provide concrete business recommendations.
-Inventory: ${JSON.stringify(inventoryData)}
-Orders: ${JSON.stringify(orderStats)}`,
+        contents: `Draft a winning web development proposal for:
+Client Name: ${clientName || 'Client'}
+Project Title: ${projectTitle || 'Custom Web Application'}
+Project Brief: ${clientBrief}
+Budget / Timeline Reference: ${budgetNote || 'To be finalized on discovery call'}`,
         config: {
-          systemInstruction:
-            'You are JS Store’s retail operations and finance analyst. Base every number, SKU, and recommendation strictly on the provided inventory and order records.',
-          thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
+          systemInstruction: `You are a senior full-stack web developer writing direct, jargon-free proposals that convert clients. ${langInstruction}`,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              executiveSummary: {
-                type: Type.STRING,
-                description: 'Concise 2-3 sentence summary of store health, revenue mix, and stock risk.',
-              },
-              restockAlerts: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    sku: { type: Type.STRING },
-                    productName: { type: Type.STRING },
-                    currentStock: { type: Type.INTEGER },
-                    recommendedOrderQty: { type: Type.INTEGER },
-                    reason: { type: Type.STRING },
-                  },
-                  required: ['sku', 'productName', 'currentStock', 'recommendedOrderQty', 'reason'],
-                },
-              },
-              marginOpportunities: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    title: { type: Type.STRING },
-                    detail: { type: Type.STRING },
-                    estimatedImpact: { type: Type.STRING },
-                  },
-                  required: ['title', 'detail', 'estimatedImpact'],
-                },
-              },
-              bundleSuggestions: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    bundleName: { type: Type.STRING },
-                    items: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    suggestedPriceNote: { type: Type.STRING },
-                    pitch: { type: Type.STRING },
-                  },
-                  required: ['bundleName', 'items', 'suggestedPriceNote', 'pitch'],
-                },
-              },
-              actionChecklist: {
+              emailSubject: { type: Type.STRING },
+              proposalEmail: { type: Type.STRING },
+              whatsappPitch: { type: Type.STRING },
+              discoveryQuestions: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
               },
             },
             required: [
-              'executiveSummary',
-              'restockAlerts',
-              'marginOpportunities',
-              'bundleSuggestions',
-              'actionChecklist',
+              'emailSubject',
+              'proposalEmail',
+              'whatsappPitch',
+              'discoveryQuestions',
             ],
           },
         },
       });
 
-      const parsed = JSON.parse((response.text ?? '{}').trim());
+      const parsed = parseAiJson<Record<string, unknown>>(response.text);
       res.json(parsed);
     } catch (err) {
       const { status, message } = formatAiError(err);
@@ -381,7 +386,7 @@ Orders: ${JSON.stringify(orderStats)}`,
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`JS Store server listening on http://0.0.0.0:${PORT}`);
+    console.log(`Server listening on http://0.0.0.0:${PORT}`);
   });
 }
 
