@@ -1,0 +1,6 @@
+{
+  "name": "JS Store",
+  "description": "Retail storefront, POS billing, inventory management, and AI business copilot for JS Store.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
