@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ClientHubView } from './components/ClientHubView';
 import { DevAiStudioView } from './components/DevAiStudioView';
 import { DevHeader } from './components/DevHeader';
+import { FloatingChatBox } from './components/FloatingChatBox';
 import { ProjectInquiryModal } from './components/ProjectInquiryModal';
 import { ServicesView } from './components/ServicesView';
 import { WorkView } from './components/WorkView';
@@ -289,6 +290,19 @@ export default function App() {
         defaultProjectTitle={inquiryDefaultTitle}
         onSubmitInquiry={handleSubmitInquiry}
         onViewInClientHub={() => setActiveTab('clients')}
+      />
+
+      <FloatingChatBox
+        developerName="Badhan Saha"
+        currency={currency}
+        projects={projects}
+        services={SERVICE_PACKAGES}
+        inquiries={inquiries}
+        onStartProject={() => {
+          setInquiryDefaultTitle('');
+          setIsInquiryOpen(true);
+        }}
+        onOpenAiStudio={() => setActiveTab('ai-studio')}
       />
     </div>
   );
